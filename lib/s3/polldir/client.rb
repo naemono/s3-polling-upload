@@ -1,5 +1,6 @@
 module S3Polldir
   # Client class for S3 directory poller
+  #
   class Client
     class ConfigurationError < StandardError; end
     class QueueTooLarge < StandardError; end
@@ -9,6 +10,8 @@ module S3Polldir
 
     attr_accessor(*Configuration::VALID_OPTIONS_KEYS)
 
+    # Initialize all the instance methods with sane values
+    #
     def initialize(options = {})
       @end_requested = @all_complete = false
       options = S3Polldir.options.merge(options)
@@ -21,6 +24,10 @@ module S3Polldir
         S3Polldir.errors.size == 0
     end # initialize
 
+    # Begin thread polling the queue of files to process
+    # and sending them to the S3Polldir::Upload::Client class
+    # for actual upload
+    #
     def poll
       begin
         S3Polldir.poll_thread = Thread.new{
@@ -70,6 +77,9 @@ module S3Polldir
       end
     end # start
 
+    # Begin thread to watch a directory and add a file to the
+    # Queue when a new file is found for upload
+    #
     def poll_dir
       Thread.new{
         while !@end_requested
@@ -86,11 +96,13 @@ module S3Polldir
       }
     end # poll_dir
 
+    # Actually add the file to the S3Polldir::Upload::Client class for upload
+    #
     def add_file(filename)
       fail FileAlreadyAdded unless !S3Polldir.status.key?(filename)
       if S3Polldir.max_threads.nil? || S3Polldir.queue.length < S3Polldir.max_threads
         begin
-          c = S3Polldir::Upload::Client.new(filename, 'testbucket', '/blah/blah/blah')
+          c = S3Polldir::Upload::Client.new(filename, @bucket, @path)
           Thread.abort_on_exception = false
           t = Thread.new{
             begin
@@ -117,10 +129,14 @@ module S3Polldir
       end
     end # add_file
 
+    # Signal that you want processing/polling to end
+    #
     def end
       @end_requested = true
     end # end
 
+    # Are all uploads complete?
+    #
     def complete?
       p "queue size = #{S3Polldir.queue.length}"
       if S3Polldir.queue.length == 0

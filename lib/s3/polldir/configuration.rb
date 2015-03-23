@@ -14,16 +14,19 @@ module S3Polldir
 
     # Sets all configuration options to their default values
     # when this module is extended.
+    #
     def self.extended(base)
       base.reset
     end # extended
 
     # Convenience method to allow configuration options to be set in a block.
+    #
     def configure
       yield self
     end # configure
 
     # Creates a hash of options and their values.
+    #
     def options
       option = {}
       VALID_OPTIONS_KEYS.each do |key|
@@ -31,16 +34,12 @@ module S3Polldir
         option.merge!(key => send(key))
         #send("#{key}=", options[key])
       end
-=begin
-      VALID_OPTIONS_KEYS.inject({}) do |option, key|
-        option.merge!(key => send(key))
-      end
-=end
       return option
     end # options
 
 
     # Resets all configuration options to the defaults.
+    #
     def reset
       self.directory = nil
       self.errors = []
@@ -55,6 +54,8 @@ module S3Polldir
       self.status = {}
     end # reset
 
+    # Validate all existing options
+    #
     def validate_options
       if valid_options?
         return true
@@ -63,6 +64,8 @@ module S3Polldir
       end
     end # validate_options
 
+    # Actually do the validation checks
+    #
     def valid_options?
       if options_valid
         return true
