@@ -28,7 +28,6 @@ module S3Polldir
       option = {}
       VALID_OPTIONS_KEYS.each do |key|
         # calls S3Polldir.key = for each Configuration option in
-        # Heimdall.options
         option.merge!(key => send(key))
         #send("#{key}=", options[key])
       end
