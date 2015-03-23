@@ -6,8 +6,9 @@ module S3Polldir
     # An array of valid keys in the options hash when
     # configuring a S3Polldir::Client
     VALID_OPTIONS_KEYS = [:directory, :delete_files, :max_threads, :prefix, \
-                          :access_key_id, :secret_access_key, :options_valid,
-                          :errors, :queue, :poll_thread, :status ].freeze
+                          :access_key_id, :secret_access_key, :options_valid, \
+                          :errors, :queue, :poll_thread, :status, \
+                          :bucket ].freeze
 
     # @private
     attr_accessor(*VALID_OPTIONS_KEYS)
@@ -52,6 +53,7 @@ module S3Polldir
       self.queue = Queue.new
       self.poll_thread = nil
       self.status = {}
+      self.bucket = nil
     end # reset
 
     # Validate all existing options
@@ -70,7 +72,7 @@ module S3Polldir
       if options_valid
         return true
       else
-        [ :access_key_id, :secret_access_key, :prefix, :directory ].each do |k|
+        [ :access_key_id, :secret_access_key, :prefix, :directory, :bucket ].each do |k|
           if instance_variable_get("@#{k}").nil?
             errors.push "#{k.to_s} cannot be blank" unless errors.include? \
               "#{k.to_s} is nil"

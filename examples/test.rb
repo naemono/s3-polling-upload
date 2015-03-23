@@ -7,6 +7,7 @@ S3Polldir.configure do |c|
   c.max_threads = 10
   c.prefix = 'testfile'
   c.directory = '/tmp'
+  c.bucket = 'xoutility-dev'
 end
 
 s = S3Polldir::Client.new
