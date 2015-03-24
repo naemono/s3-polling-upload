@@ -10,19 +10,23 @@ module S3Polldir
 
       class InvalidConfiguration < StandardError; end
       class RandomException < StandardError; end
+      class UnknownError < StandardError; end
+      class InvalidData < StandardError; end
 
       # Initialize all of the instance variables and make sure
       # We get some sane values
       #
-      def initialize(filename, bucket, path, region = 'us-east-1')
+      def initialize(filename, bucket, path, region = 'us-east-1', access_key_id, secret_access_key)
         @filename = filename
         @complete = false
         @bucket = bucket
         @date = `date +"%Y%m%d_%H%M"`.strip!
         @path = path
         @region = region
+        @access_key_id = access_key_id
+        @secret_access_key = secret_access_key
         @errors = []
-        [ :filename, :bucket, :path].each do |c|
+        [ :filename, :bucket, :path, :access_key_id, :secret_access_key].each do |c|
           if instance_variable_get("@#{c}").nil? || \
             instance_variable_get("@#{c}").empty?
             fail InvalidConfiguration, "#{c.to_s} cannot be blank"
@@ -35,49 +39,11 @@ module S3Polldir
       def init_s3
         # Disable ssl, as it's been giving random ssl errors
         Aws.config[:ssl_verify_peer] = false
-        test_aws_credentials
+        creds ||= Aws::Credentials.new(@access_key_id, \
+                                     @secret_access_key)
+        @s3 ||= Aws::S3::Client.new(region: @region, \
+                                  credentials: creds)
       end
-
-      # Verify that we have received proper AWS Credentials in one of
-      # the many ways:
-      # see http://docs.aws.amazon.com/sdkforruby/api/#Credentials
-      def test_aws_credentials
-        @s3 = Aws::S3::Client.new(region: @region)
-        if @s3.config.credentials.nil?
-          # We haven't found credentials in 1. instance profile
-          # 2. environment variables
-          # So let's try a profile
-          begin
-            creds = \
-              Aws::SharedCredentials.new(profile_name: 's3-polldir')
-            if creds.access_key_id.nil? || creds.secret_access_key.nil?
-              fail Aws::Errors::NoSuchProfileError
-            end
-            @s3 = Aws::S3::Client.new(region: @region, credentials: creds)
-            @access_key_id = creds.access_key_id
-            @secret_access_key = creds.secret_access_key
-          rescue Aws::Errors::NoSuchProfileError
-            if @access_key_id.nil? || @secret_access_key.nil?
-              # We can't find S3 credentials, this is bad!
-              @errors.push 'The AWS access key and/or ' \
-                           + 'secret access key ' \
-                           + 'appear to be missing, and are required in an ' \
-                           + 'AWS Instance Profile, Configuration file ' \
-                           + 'profile, environment variables, ' \
-                           + 'or settings file'
-              fail InvalidConfiguration, @errors.join(', ')
-            else
-              creds = Aws::Credentials.new(@access_key_id, \
-                                           @secret_access_key)
-              @s3 = Aws::S3::Client.new(region: @region, \
-                                        credentials: creds)
-            end
-          end
-        else
-          @access_key_id = @s3.config.credentials.access_key_id
-          @secret_access_key = @s3.config.credentials.secret_access_key
-        end
-      end # test_aws_credentials
 
       # Upload method to begin backup of file to S3
       #
@@ -117,30 +83,34 @@ module S3Polldir
       def backup_to_s3
         init_s3
 
-        p "Would upload #{@filename} to bucket #{@bucket}, path: #{@path}"
-
-        fake_work
-
-        return
+        #fake_work
+        #return
 
         unless File.exist? @filename
-          p "File doesn't exist: #{@filename}"
-          @errors.push "File doesn't exist: #{@filename}"
+          error = "File doesn't exist: #{@filename}"
+          p "#{error}"
+          @errors.push error unless @errors.include? error
           fail InvalidData, @errors.join(', ')
         end
-
-        bucket = s3_bucket
 
         s3 = Aws::S3::Resource.new(
           access_key_id: @access_key_id,
           secret_access_key: @secret_access_key,
-          region: 'us-east-1'
+          region: @region
         )
 
+        s3file = File.basename(@filename)
+
         rescue_connection_failure do
+          p "Uploading #{s3file} to bucket #{@bucket}, path: #{@path}"
           s3.bucket(@bucket).object(@path + \
-            "#{@filename}").upload_file(@filename)
+            "#{s3file}").upload_file(@filename)
         end
+      rescue => e
+        error =   p "Unknown error while backing up to S3: #{e.message}"
+        p "#{error}"
+        @errors.push error unless @errors.include? error
+        fail UnknownError, "#{error}, #{e.backtrace}"
       end # backup_to_s3
     end
   end
