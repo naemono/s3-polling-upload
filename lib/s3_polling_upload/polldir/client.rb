@@ -27,9 +27,12 @@ module S3Polldir
     rescue ConfigurationError
       raise
     rescue => e
-      p "Unknown error in S3Polldir::Client::initialize: #{e.message}, #{e.backtrace}"
-      S3Polldir.errors.push "Unknown error in S3Polldir::Client::initialize: #{e.message}"
-      fail UnknownError, "Unknown error in S3Polldir::Client::initialize: #{e.message}, #{e.backtrace}"
+      p "Unknown error in S3Polldir::Client::initialize: #{e.message}," \
+        + " #{e.backtrace}"
+      S3Polldir.errors.push 'Unknown error in S3Polldir::Client::initialize: ' \
+        + "#{e.message}"
+      fail UnknownError, 'Unknown error in S3Polldir::Client::initialize: ' \
+        + "#{e.message}, #{e.backtrace}"
     end # initialize
 
     def start
@@ -39,7 +42,7 @@ module S3Polldir
       sleep 1
       poll_upload_status
       sleep 1
-    end
+    end # initialize
 
     # Begin thread polling the queue of files to process
     # and sending them to the S3Polldir::Upload::Client class
@@ -65,7 +68,8 @@ module S3Polldir
             end
           rescue Exception => e
             p "Caught expception while polling: #{e.message}, #{e.backtrace}"
-            fail UnknownError, "Caught expception while polling: #{e.message}, #{e.backtrace}"
+            fail UnknownError, 'Caught expception while polling: ' \
+              + "#{e.message},"" #{e.backtrace}"
           end
         }
       rescue Exception => e
@@ -74,7 +78,7 @@ module S3Polldir
       rescue
         p 'caught random exception'
       end
-    end # start
+    end # poll_pre_process_queue
 
     # Begin thread polling the queue of files to process
     # and sending them to the S3Polldir::Upload::Client class
@@ -93,25 +97,28 @@ module S3Polldir
                   # Upload thread completed successfully
                   p "Upload complete for filename: #{upload_thread[:name]}"
                   S3Polldir.status[upload_thread[:name]] = :complete
+                  delete_file(upload_thread[:name]) if @delete_files
                 when 'sleep'
                   # Upload thread not complete, and likely in I/O state
                   # We just push this back on the queue...
-                  p "#{upload_thread[:name]}: upload waiting on i/o, putting back on queue"
+                  p "#{upload_thread[:name]}: upload waiting on i/o, " \
+                    + 'putting back on queue'
                   S3Polldir.queue << upload_thread
                 when 'aborting'
                   # Upload thread aborting
                   p 'upload is aborting'
-                  #S3Polldir.errors.push "Upload failed for filename: #{upload_thread[:name]}"
                   S3Polldir.status[upload_thread[:name]] = :failed
                 when nil
-                  #S3Polldir.errors.push "Upload failed for filename: #{upload_thread[:name]}"
-                  p 'upload terminated with exception: ' + S3Polldir.errors.join(', ')
+                  p 'upload terminated with exception: ' + \
+                    S3Polldir.errors.join(', ')
                   S3Polldir.status[upload_thread[:name]] = :failed
                 when 'run'
-                  p "#{upload_thread[:name]}: upload runing, putting back on queue"
+                  p "#{upload_thread[:name]}: upload runing, putting " \
+                    + 'back on queue'
                   S3Polldir.queue << upload_thread
                 else
-                  p "#{upload_thread[:name]}: upload is odd state, state: #{upload_thread.status}"
+                  p "#{upload_thread[:name]}: upload is odd state, state:" \
+                    + " #{upload_thread.status}"
                 end
               end
               sleep 1
@@ -122,8 +129,10 @@ module S3Polldir
               p "Upload failed: " + S3Polldir.errors.join(', ')
             end
           rescue Exception => e
-            p "Caught expception while polling uploads thread: #{e.message}, #{e.backtrace}"
-            fail UnknownError, "Caught expception while polling uploads thread: #{e.message}, #{e.backtrace}"
+            p "Caught expception while polling uploads thread: #{e.message}, " \
+              + "#{e.backtrace}"
+            fail UnknownError, 'Caught expception while polling uploads ' \
+              + "thread: #{e.message}, #{e.backtrace}"
           end
         }
       rescue Exception => e
@@ -132,7 +141,14 @@ module S3Polldir
       rescue
         p 'caught random exception'
       end
-    end # start
+    end # poll_upload_status
+
+    # Delete file after successful upload
+    #
+    def delete_file(file)
+      p "Attempting to delete file: #{file}"
+      File.delete(file) if File.exist?(file)
+    end # delete_file
 
     # Begin thread to watch a directory and add a file to the
     # Queue when a new file is found for upload
@@ -144,9 +160,11 @@ module S3Polldir
           while !@end_requested
             Dir.glob("#{@directory}/#{@prefix}*").each do |f|
               begin
-                (p "Adding file: #{f}"; add_file(f)) unless S3Polldir.status.key?(f)
+                (p "Adding file: #{f}"; add_file(f)) unless \
+                  S3Polldir.status.key?(f)
               rescue Exception => e
-                p "Retrying because of unknown error: #{e.message}, #{e.backtrace}"
+                p 'Retrying because of unknown error: ' \
+                  + "#{e.message}, #{e.backtrace}"
                 sleep 4
                 retry
               end
@@ -183,9 +201,12 @@ module S3Polldir
     end # add_file
 
     def process_file(filename)
-      if S3Polldir.max_threads.nil? || S3Polldir.queue.length < S3Polldir.max_threads
+      if S3Polldir.max_threads.nil? || S3Polldir.queue.length < \
+          S3Polldir.max_threads
         begin
-          c = S3Polldir::Upload::Client.new(filename, @bucket, @s3path, @s3region, @access_key_id, @secret_access_key)
+          c = S3Polldir::Upload::Client.new(filename, @bucket, @s3path, \
+                                            @s3region, @access_key_id, \
+                                            @secret_access_key)
           Thread.abort_on_exception = false
           t = Thread.new{
             begin

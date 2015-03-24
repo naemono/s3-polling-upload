@@ -1,10 +1,11 @@
 #!/usr/bin/env ruby
-require_relative '../lib/s3'
+require_relative '../lib/s3_polling_upload'
 
 S3Polldir.configure do |c|
   # These can be set here...
   #c.access_key_id = 'blah'
   #c.secret_access_key = 'blah'
+  c.delete_files = true
   c.max_threads = 10
   c.prefix = 'testfile'
   c.directory = '/Users/mmontgomery/tmp'

@@ -16,7 +16,8 @@ module S3Polldir
       # Initialize all of the instance variables and make sure
       # We get some sane values
       #
-      def initialize(filename, bucket, path, region = 'us-east-1', access_key_id, secret_access_key)
+      def initialize(filename, bucket, path, region = 'us-east-1', \
+                     access_key_id, secret_access_key)
         @filename = filename
         @complete = false
         @bucket = bucket
@@ -26,7 +27,8 @@ module S3Polldir
         @access_key_id = access_key_id
         @secret_access_key = secret_access_key
         @errors = []
-        [ :filename, :bucket, :path, :access_key_id, :secret_access_key].each do |c|
+        [ :filename, :bucket, :path, :access_key_id,\
+          :secret_access_key].each do |c|
           if instance_variable_get("@#{c}").nil? || \
             instance_variable_get("@#{c}").empty?
             fail InvalidConfiguration, "#{c.to_s} cannot be blank"
@@ -43,7 +45,7 @@ module S3Polldir
                                      @secret_access_key)
         @s3 ||= Aws::S3::Client.new(region: @region, \
                                   credentials: creds)
-      end
+      end # init_s3
 
       # Upload method to begin backup of file to S3
       #
@@ -76,7 +78,7 @@ module S3Polldir
           sleep(0.5)
           retry
         end
-      end
+      end # rescue_connection_failure
 
       # Actually do the backup work
       #
